@@ -87,15 +87,13 @@ export default function Home() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  async function uploadPdfs(event: React.ChangeEvent<HTMLInputElement>) {
-    const input = event.target;
-    const files = input.files;
-    if (!files?.length) return;
+  async function processPdfFiles(files: File[]) {
+    if (!files.length) return;
     setUploading(true);
     setUploadError("");
     try {
       const form = new FormData();
-      Array.from(files).forEach((file) => form.append("files", file));
+      files.forEach((file) => form.append("files", file));
       const res = await fetch("/api/profiles/upload", { method: "POST", body: form });
       if (!res.ok) {
         throw new Error("Upload failed. Please retry.");
@@ -105,10 +103,17 @@ export default function Home() {
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : "Upload failed. Please retry.");
     } finally {
-      // Reset the file input so selecting the same PDF triggers onChange again.
-      input.value = "";
       setUploading(false);
     }
+  }
+
+  async function uploadPdfs(event: React.ChangeEvent<HTMLInputElement>) {
+    const input = event.target;
+    const files = input.files;
+    if (!files?.length) return;
+    await processPdfFiles(Array.from(files));
+    // Reset the file input so selecting the same PDF triggers onChange again.
+    input.value = "";
   }
 
   async function savePreview(preview: Partial<BiodataProfile>) {
@@ -192,6 +197,26 @@ export default function Home() {
     });
   }
 
+  useEffect(() => {
+    async function onPaste(event: ClipboardEvent) {
+      const items = Array.from(event.clipboardData?.items ?? []);
+      const pastedPdfFiles = items
+        .filter((item) => item.kind === "file")
+        .map((item) => item.getAsFile())
+        .filter((file): file is File => {
+          if (!file) return false;
+          return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+        });
+
+      if (!pastedPdfFiles.length) return;
+      event.preventDefault();
+      await processPdfFiles(pastedPdfFiles);
+    }
+
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, []);
+
   return (
     <div className="ds-page">
       <main className="ds-container">
@@ -205,7 +230,9 @@ export default function Home() {
         <section className="grid gap-3 md:grid-cols-2">
           <Card className="border-slate-300 p-4 text-sm transition hover:border-blue-300 hover:shadow">
             <p className="font-semibold text-slate-800">Upload PDF(s)</p>
-            <p className="mt-0.5 text-xs text-slate-500">You can re-upload the same file after each run.</p>
+            <p className="mt-0.5 text-xs text-slate-500">
+              You can re-upload the same file after each run. Paste with Ctrl/Cmd+V is also supported.
+            </p>
             <Input
               className="mt-3 block border-slate-200 bg-slate-50 file:mr-3 file:rounded-md file:border-0 file:bg-blue-600 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-blue-700"
               type="file"

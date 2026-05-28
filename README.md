@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Biodata Tracker MVP
 
-## Getting Started
+Web app to track biodata PDFs, call progress, follow-ups, priorities, and hold cases.
 
-First, run the development server:
+## Stack
+
+- Next.js (App Router) + TypeScript + Tailwind
+- File-backed JSON store for local MVP persistence
+- API routes for profile workflow and interaction logs
+
+## MVP Features
+
+- Manual single/bulk PDF upload
+- Basic field extraction fallback + manual review/edit before save
+- Workflow board: New, Called, Follow Up, Hold, Closed
+- Priority management: High, Medium, Low
+- Follow-up reminders: today, overdue, high-priority pending
+- Interaction timeline for each profile
+- Search across name/city/education/occupation/contact
+
+## Run Locally
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Validation
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run lint
+npm run build
+```
 
-## Learn More
+## Data Model
 
-To learn more about Next.js, take a look at the following resources:
+- Runtime model/types are defined in `src/lib/types.ts`
+- SQL reference schema is available in `docs/schema.sql`
+- Local data persists in `data/store.json` (created automatically)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## API Endpoints
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `GET /api/profiles` - list profiles + reminder counters + high-priority pending count
+- `POST /api/profiles` - create profile
+- `POST /api/profiles/upload` - upload PDFs and get extracted previews
+- `GET /api/profiles/:id` - profile details + interaction logs
+- `PATCH /api/profiles/:id` - update status/priority/follow-up/hold and append interaction log

@@ -2,7 +2,10 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { StoreData } from "@/lib/types";
 
-const STORE_PATH = join(process.cwd(), "data", "store.json");
+const isVercel = process.env.VERCEL === "1";
+const STORE_PATH = isVercel
+  ? "/tmp/biodata-store.json"
+  : join(process.cwd(), "data", "store.json");
 
 const initialStore: StoreData = {
   profiles: [],

@@ -39,6 +39,7 @@ npm run build
 - Runtime model/types are defined in `src/lib/types.ts`
 - SQL reference schema is available in `docs/schema.sql`
 - Local data persists in `data/store.json` (created automatically)
+- On Vercel runtime, app uses `/tmp/biodata-store.json` (ephemeral per instance)
 
 ## API Endpoints
 

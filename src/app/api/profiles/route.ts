@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAfter, isBefore, startOfDay } from "date-fns";
 import { readStore, writeStore } from "@/lib/store";
-import type { BiodataPriority, BiodataStatus, InteractionType } from "@/lib/types";
+import { deletePendingUpload, getPendingUpload } from "@/lib/upload-cache";
+import type { BiodataPriority, BiodataProfile, BiodataStatus, InteractionType } from "@/lib/types";
+
+function stripHeavyFields(profile: BiodataProfile) {
+  const { uploadedPdfGzipBase64, ...rest } = profile;
+  void uploadedPdfGzipBase64;
+  return rest;
+}
 
 export async function GET(request: NextRequest) {
   const store = await readStore();
@@ -48,7 +55,11 @@ export async function GET(request: NextRequest) {
     (profile) => profile.priority === "high" && profile.status !== "closed" && profile.status !== "called",
   ).length;
 
-  return NextResponse.json({ profiles, reminders, highPriorityPending });
+  return NextResponse.json({
+    profiles: profiles.map(stripHeavyFields),
+    reminders,
+    highPriorityPending,
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -56,11 +67,29 @@ export async function POST(request: NextRequest) {
   const store = await readStore();
   const now = new Date().toISOString();
 
+  let uploadedPdfGzipBase64 = body.uploadedPdfGzipBase64 ?? "";
+  let extractedText = body.extractedText ?? "";
+  let profilePhotoDataUrl = body.profilePhotoDataUrl ?? "";
+  let profilePhotoDataUrls =
+    body.profilePhotoDataUrls ?? (body.profilePhotoDataUrl ? [body.profilePhotoDataUrl] : []);
+
+  if (body.uploadId) {
+    const pending = await getPendingUpload(String(body.uploadId));
+    if (!pending) {
+      return NextResponse.json({ error: "Upload session expired. Please upload PDF again." }, { status: 410 });
+    }
+    uploadedPdfGzipBase64 = pending.uploadedPdfGzipBase64;
+    extractedText = pending.extractedText;
+    profilePhotoDataUrl = pending.profilePhotoDataUrl;
+    profilePhotoDataUrls = pending.profilePhotoDataUrls;
+    await deletePendingUpload(String(body.uploadId));
+  }
+
   const profile = {
     id: store.nextProfileId++,
     sourceFileName: body.sourceFileName ?? "manual-entry",
     uploadedAt: now,
-    uploadedPdfGzipBase64: body.uploadedPdfGzipBase64 ?? "",
+    uploadedPdfGzipBase64,
     name: body.name ?? "",
     pointOfContactName: body.pointOfContactName ?? "",
     pointOfContactPhone: body.pointOfContactPhone ?? "",
@@ -71,16 +100,14 @@ export async function POST(request: NextRequest) {
     occupation: body.occupation ?? "",
     salary: body.salary ?? "",
     contact: body.contact ?? "",
-    profilePhotoDataUrl: body.profilePhotoDataUrl ?? "",
-    profilePhotoDataUrls:
-      body.profilePhotoDataUrls ??
-      (body.profilePhotoDataUrl ? [body.profilePhotoDataUrl] : []),
+    profilePhotoDataUrl,
+    profilePhotoDataUrls,
     status: (body.status ?? "new") as BiodataStatus,
     priority: (body.priority ?? "medium") as BiodataPriority,
     holdReason: body.holdReason ?? "",
     nextFollowupAt: body.nextFollowupAt ?? "",
     notes: body.notes ?? "",
-    extractedText: body.extractedText ?? "",
+    extractedText,
   };
 
   store.profiles.unshift(profile);
@@ -99,5 +126,5 @@ export async function POST(request: NextRequest) {
   }
 
   await writeStore(store);
-  return NextResponse.json({ profile }, { status: 201 });
+  return NextResponse.json({ profile: stripHeavyFields(profile) }, { status: 201 });
 }

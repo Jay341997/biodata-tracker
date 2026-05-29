@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readStore, writeStore } from "@/lib/store";
-import type { BiodataPriority, BiodataStatus, InteractionType } from "@/lib/types";
+import type { BiodataPriority, BiodataProfile, BiodataStatus, InteractionType } from "@/lib/types";
+
+function stripHeavyFields(profile: BiodataProfile) {
+  const { uploadedPdfGzipBase64, ...rest } = profile;
+  void uploadedPdfGzipBase64;
+  return rest;
+}
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -15,7 +21,7 @@ export async function GET(_: NextRequest, { params }: Params) {
   }
 
   const interactionLogs = store.interactionLogs.filter((item) => item.profileId === profileId);
-  return NextResponse.json({ profile, interactionLogs });
+  return NextResponse.json({ profile: stripHeavyFields(profile), interactionLogs });
 }
 
 export async function PATCH(request: NextRequest, { params }: Params) {
@@ -32,7 +38,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   const updated = {
     ...existing,
     sourceFileName: body.sourceFileName ?? existing.sourceFileName,
-    uploadedPdfGzipBase64: body.uploadedPdfGzipBase64 ?? existing.uploadedPdfGzipBase64,
+    uploadedPdfGzipBase64: existing.uploadedPdfGzipBase64,
     name: body.name ?? existing.name,
     pointOfContactName: body.pointOfContactName ?? existing.pointOfContactName,
     pointOfContactPhone: body.pointOfContactPhone ?? existing.pointOfContactPhone,
@@ -71,7 +77,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   }
 
   await writeStore(store);
-  return NextResponse.json({ profile: updated });
+  return NextResponse.json({ profile: stripHeavyFields(updated) });
 }
 
 export async function DELETE(_: NextRequest, { params }: Params) {

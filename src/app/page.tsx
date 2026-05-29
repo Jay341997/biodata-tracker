@@ -24,6 +24,8 @@ type DashboardData = {
   highPriorityPending: number;
 };
 
+type UploadPreview = Partial<BiodataProfile> & { uploadId?: string };
+
 export default function Home() {
   const [dashboard, setDashboard] = useState<DashboardData>({
     profiles: [],
@@ -34,7 +36,7 @@ export default function Home() {
   const [logs, setLogs] = useState<InteractionLog[]>([]);
   const [search, setSearch] = useState("");
   const [uploading, setUploading] = useState(false);
-  const [uploadPreviews, setUploadPreviews] = useState<Partial<BiodataProfile>[]>([]);
+  const [uploadPreviews, setUploadPreviews] = useState<UploadPreview[]>([]);
   const [uploadError, setUploadError] = useState("");
   const [actionError, setActionError] = useState("");
   const [updatingProfileId, setUpdatingProfileId] = useState<number | null>(null);
@@ -95,10 +97,10 @@ export default function Home() {
       const form = new FormData();
       files.forEach((file) => form.append("files", file));
       const res = await fetch("/api/profiles/upload", { method: "POST", body: form });
+      const data = (await res.json()) as { previews?: UploadPreview[]; error?: string };
       if (!res.ok) {
-        throw new Error("Upload failed. Please retry.");
+        throw new Error(data.error ?? "Upload failed. Please retry.");
       }
-      const data = await res.json();
       setUploadPreviews(data.previews ?? []);
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : "Upload failed. Please retry.");
@@ -116,14 +118,31 @@ export default function Home() {
     input.value = "";
   }
 
-  async function savePreview(preview: Partial<BiodataProfile>) {
+  async function savePreview(preview: UploadPreview) {
     const res = await fetch("/api/profiles", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(preview),
+      body: JSON.stringify({
+        uploadId: preview.uploadId,
+        sourceFileName: preview.sourceFileName,
+        name: preview.name,
+        pointOfContactName: preview.pointOfContactName,
+        pointOfContactPhone: preview.pointOfContactPhone,
+        age: preview.age,
+        city: preview.city,
+        workingLocation: preview.workingLocation,
+        education: preview.education,
+        occupation: preview.occupation,
+        salary: preview.salary,
+        contact: preview.contact,
+        notes: preview.notes,
+        status: preview.status,
+        priority: preview.priority,
+      }),
     });
     if (!res.ok) {
-      setActionError("Could not save profile. Please retry.");
+      const data = (await res.json()) as { error?: string };
+      setActionError(data.error ?? "Could not save profile. Please retry.");
       return;
     }
     const data = (await res.json()) as { profile?: BiodataProfile };
